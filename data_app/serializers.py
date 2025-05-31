@@ -15,3 +15,4 @@ class GenerationDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = GenerationData
         fields = '__all__'
+    

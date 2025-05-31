@@ -75,78 +75,131 @@
     {{ mcp_chart_data|json_script:"mcpChartData" }}
 
     <script>
-        // MCV Bar Chart
-        const totalVolumes = JSON.parse(document.getElementById("totalVolumesData").textContent);
-        const mcvLabels = totalVolumes.map(row => row.product);
-        const mcvValues = totalVolumes.map(row => row.total_volume);
+    // MCV Bar Chart
+    const totalVolumes = JSON.parse(document.getElementById("totalVolumesData").textContent);
+    if (totalVolumes.length === 0) {
+        console.warn("⚠ No MCV bar chart data available.");
+        document.getElementById("mcvBarChart").outerHTML = "<p style='color:red'>No data available for MCV chart.</p>";
+    } else {
+        const labels = totalVolumes.map(row => row.product);
+        const values = totalVolumes.map(row => row.total_volume);
 
         new Chart(document.getElementById("mcvBarChart"), {
             type: "bar",
             data: {
-                labels: mcvLabels,
+                labels: labels,
                 datasets: [{
                     label: "Total MCV",
-                    data: mcvValues,
-                    backgroundColor: ["#007bff", "#28a745", "#ffc107", "#dc3545"]
+                    data: values,
+                    backgroundColor: "#4CAF50"
                 }]
             },
             options: {
                 responsive: true,
                 plugins: {
-                    legend: { display: false }
+                    title: {
+                        display: true,
+                        text: "Total MCV by Product"
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "MCV"
+                        }
+                    }
                 }
             }
         });
+    }
 
-        // MCP Line Chart
-        const mcpData = JSON.parse(document.getElementById("mcpChartData").textContent);
-        const timeLabels = mcpData.map(row => row.timestamp.split("T")[1].slice(0, 5));
-        const mcpValues = mcpData.map(row => row.mcp);
+    // MCP Line Chart
+    const mcpData = JSON.parse(document.getElementById("mcpChartData").textContent);
+    if (!mcpData || mcpData.length === 0) {
+        console.warn("⚠ No MCP chart data available.");
+        document.getElementById("mcpLineChart").outerHTML = "<p style='color:red'>No data available for MCP Over Time chart.</p>";
+    } else {
+        const productMap = {};
+        mcpData.forEach(row => {
+            const time = new Date(row.timestamp).toLocaleString();
+            if (!productMap[row.product]) {
+                productMap[row.product] = { labels: [], data: [] };
+            }
+            productMap[row.product].labels.push(time);
+            productMap[row.product].data.push(row.mcp);
+        });
+
+        const colors = ["blue", "green", "red", "orange", "purple", "brown", "gray"];
+        let colorIndex = 0;
+
+        const datasets = Object.entries(productMap).map(([product, series]) => {
+            const color = colors[colorIndex++ % colors.length];
+            return {
+                label: product,
+                data: series.data,
+                borderColor: color,
+                backgroundColor: color + "33",
+                tension: 0.3,
+                fill: true
+            };
+        });
+
+        const allLabels = Object.values(productMap)[0]?.labels || [];
 
         new Chart(document.getElementById("mcpLineChart"), {
             type: "line",
             data: {
-                labels: timeLabels,
-                datasets: [{
-                    label: "MCP Over Time",
-                    data: mcpValues,
-                    borderColor: "blue",
-                    backgroundColor: "lightblue",
-                    tension: 0.3,
-                    fill: true
-                }]
+                labels: allLabels,
+                datasets: datasets
             },
             options: {
                 responsive: true,
                 plugins: {
-                    legend: { position: "top" }
+                    legend: { position: "top" },
+                    title: {
+                        display: true,
+                        text: "MCP Over Time by Product"
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: "Timestamp" },
+                        ticks: { autoSkip: true, maxTicksLimit: 20 }
+                    },
+                    y: {
+                        title: { display: true, text: "MCP" }
+                    }
                 }
             }
         });
+    }
 
-        // AI Assistant
-        async function askAI() {
-            const question = document.getElementById("question").value;
-            const responseBox = document.getElementById("responseBox");
-            const button = document.getElementById("askButton");
-            responseBox.textContent = "Thinking...";
-            button.disabled = true;
+    // 🧠 AI Assistant Function
+    async function askAI() {
+        const question = document.getElementById("question").value;
+        const responseBox = document.getElementById("responseBox");
+        responseBox.innerText = "🤖 Thinking...";
 
-            try {
-                const res = await fetch("/ai-assistant/", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ question })
-                });
+        try {
+            const res = await fetch("/ai-assistant/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question: question })
+            });
 
-                const data = await res.json();
-                responseBox.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                responseBox.textContent = "Error: " + error.message;
-            } finally {
-                button.disabled = false;
+            const result = await res.json();
+
+            if (res.ok) {
+                responseBox.innerText = `🧠 AI Response:\n\nQuestion: ${result.question}\n\nParsed:\n${JSON.stringify(result.parsed_params, null, 2)}\n\nAverage MCP: ${result.average_mcp}`;
+            } else {
+                responseBox.innerText = `❌ Error:\n${JSON.stringify(result, null, 2)}`;
             }
+        } catch (err) {
+            responseBox.innerText = `❌ Exception:\n${err}`;
         }
+    }
     </script>
 </body>
 </html>
