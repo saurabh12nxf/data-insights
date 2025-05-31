@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Electricity Data Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Electricity Data Dashboard</h1>
+    {% if message %}<p style="color:green">{{ message }}</p>{% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Upload CSV</button>
+    </form>
+
+    <h2>Ask Assistant 🤖</h2>
+    <input type="text" id="question" placeholder="e.g., What is the average MCP for DAM in March 2024?" style="width:60%">
+    <button onclick="askAI()" id="askButton">Ask</button>
+    <pre id="responseBox" style="background:#f4f4f4; padding:1em;"></pre>
+
+    <h2>Latest IEX Market Data</h2>
+    <table border="1">
+        <tr>
+            <th>Product</th>
+            <th>MCV</th>
+            <th>MCP</th>
+            <th>Timestamp</th>
+        </tr>
+        {% for entry in data %}
+        <tr>
+            <td>{{ entry.product }}</td>
+            <td>{{ entry.mcv }}</td>
+            <td>{{ entry.mcp }}</td>
+            <td>{{ entry.timestamp }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Average MCP per Product</h2>
+    <table border="1">
+        <tr>
+            <th>Product</th>
+            <th>Average MCP</th>
+        </tr>
+        {% for row in avg_prices %}
+        <tr>
+            <td>{{ row.product }}</td>
+            <td>{{ row.avg_price }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Total MCV per Product</h2>
+    <table border="1">
+        <tr>
+            <th>Product</th>
+            <th>Total MCV</th>
+        </tr>
+        {% for row in total_volumes %}
+        <tr>
+            <td>{{ row.product }}</td>
+            <td>{{ row.total_volume }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>📊 Total MCV by Product</h2>
+    <canvas id="mcvBarChart" width="400" height="200"></canvas>
+
+    <h2>📈 MCP Over Time</h2>
+    <canvas id="mcpLineChart" width="600" height="200"></canvas>
+
+    {{ total_volumes|json_script:"totalVolumesData" }}
+    {{ mcp_chart_data|json_script:"mcpChartData" }}
+
+    <script>
+        // MCV Bar Chart
+        const totalVolumes = JSON.parse(document.getElementById("totalVolumesData").textContent);
+        const mcvLabels = totalVolumes.map(row => row.product);
+        const mcvValues = totalVolumes.map(row => row.total_volume);
+
+        new Chart(document.getElementById("mcvBarChart"), {
+            type: "bar",
+            data: {
+                labels: mcvLabels,
+                datasets: [{
+                    label: "Total MCV",
+                    data: mcvValues,
+                    backgroundColor: ["#007bff", "#28a745", "#ffc107", "#dc3545"]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // MCP Line Chart
+        const mcpData = JSON.parse(document.getElementById("mcpChartData").textContent);
+        const timeLabels = mcpData.map(row => row.timestamp.split("T")[1].slice(0, 5));
+        const mcpValues = mcpData.map(row => row.mcp);
+
+        new Chart(document.getElementById("mcpLineChart"), {
+            type: "line",
+            data: {
+                labels: timeLabels,
+                datasets: [{
+                    label: "MCP Over Time",
+                    data: mcpValues,
+                    borderColor: "blue",
+                    backgroundColor: "lightblue",
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: "top" }
+                }
+            }
+        });
+
+        // AI Assistant
+        async function askAI() {
+            const question = document.getElementById("question").value;
+            const responseBox = document.getElementById("responseBox");
+            const button = document.getElementById("askButton");
+            responseBox.textContent = "Thinking...";
+            button.disabled = true;
+
+            try {
+                const res = await fetch("/ai-assistant/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await res.json();
+                responseBox.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseBox.textContent = "Error: " + error.message;
+            } finally {
+                button.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
