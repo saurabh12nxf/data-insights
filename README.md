@@ -26,7 +26,7 @@ This platform provides insights into electricity market data, including IEX (Ind
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/data-insights-platform.git
+git clone https://github.com/saurabh12nxf/data-insights.git
 cd data-insights-platform
 ```
 
