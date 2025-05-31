@@ -3,9 +3,87 @@
 <head>
     <title>Electricity Data Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f9fb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        form, .card {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 16px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input[type="text"] {
+            padding: 8px;
+            width: 60%;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 1em;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        canvas {
+            margin-top: 20px;
+            background-color: white;
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-top: 15px;
+        }
+        .no-data {
+            color: red;
+        }
+    </style>
 </head>
 <body>
+<div class="container">
     <h1>Electricity Data Dashboard</h1>
+
     {% if message %}<p style="color:green">{{ message }}</p>{% endif %}
 
     <form method="POST" enctype="multipart/form-data">
@@ -14,192 +92,753 @@
         <button type="submit">Upload CSV</button>
     </form>
 
-    <h2>Ask Assistant 🤖</h2>
-    <input type="text" id="question" placeholder="e.g., What is the average MCP for DAM in March 2024?" style="width:60%">
-    <button onclick="askAI()" id="askButton">Ask</button>
-    <pre id="responseBox" style="background:#f4f4f4; padding:1em;"></pre>
+    <div class="card">
+        <h2>Ask Assistant 🤖</h2>
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="question" placeholder="e.g., What is the average MCP for DAM in March 2024?">
+            <button id="askButton" class="btn btn-primary">Ask</button>
+        </div>
+        <div class="small text-muted" style="margin-bottom: 10px;">
+            <strong>Example questions:</strong><br>
+            • What is the weighted average price for DAM last week?<br>
+            • Show me the demand for May 29, 2024<br>
+            • What was the generation data for RTM yesterday?<br>
+            • What's the trend for DAM prices between May 1 and May 31?<br>
+            • How much volume was traded for RTM on May 29?<br>
+            <small>(The assistant understands relative terms like "yesterday", "last week", "last month", etc.)</small>
+        </div>
+        <div id="aiResponse" style="margin-top: 15px;">
+            <div id="responseMessage" style="font-weight: bold; margin-bottom: 10px;"></div>
+            <div id="responseDetails"></div>
+            <pre id="responseBox" style="display: none;"></pre>
+        </div>
+    </div>
 
-    <h2>Latest IEX Market Data</h2>
-    <table border="1">
-        <tr>
-            <th>Product</th>
-            <th>MCV</th>
-            <th>MCP</th>
-            <th>Timestamp</th>
-        </tr>
-        {% for entry in data %}
-        <tr>
-            <td>{{ entry.product }}</td>
-            <td>{{ entry.mcv }}</td>
-            <td>{{ entry.mcp }}</td>
-            <td>{{ entry.timestamp }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="card">
+        <h2>Latest IEX Market Data</h2>
+        <table>
+            <tr>
+                <th>Product</th>
+                <th>Purchase Bids</th>
+                <th>Sell Bids</th>
+                <th>MCV</th>
+                <th>MCP</th>
+                <th>Timestamp</th>
+            </tr>
+            {% for entry in data %}
+            <tr>
+                <td>{{ entry.product }}</td>
+                <td>{{ entry.purchase_bids }}</td>
+                <td>{{ entry.sell_bids }}</td>
+                <td>{{ entry.mcv }}</td>
+                <td>{{ entry.mcp }}</td>
+                <td>{{ entry.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
 
-    <h2>Average MCP per Product</h2>
-    <table border="1">
-        <tr>
-            <th>Product</th>
-            <th>Average MCP</th>
-        </tr>
-        {% for row in avg_prices %}
-        <tr>
-            <td>{{ row.product }}</td>
-            <td>{{ row.avg_price }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="card">
+        <h2>Average MCP per Product</h2>
+        <table>
+            <tr>
+                <th>Product</th>
+                <th>Average MCP</th>
+            </tr>
+            {% for row in avg_prices %}
+            <tr>
+                <td>{{ row.product }}</td>
+                <td>{{ row.avg_price }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
 
-    <h2>Total MCV per Product</h2>
-    <table border="1">
-        <tr>
-            <th>Product</th>
-            <th>Total MCV</th>
-        </tr>
-        {% for row in total_volumes %}
-        <tr>
-            <td>{{ row.product }}</td>
-            <td>{{ row.total_volume }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="card">
+        <h2>Total MCV per Product</h2>
+        <table>
+            <tr>
+                <th>Product</th>
+                <th>Total MCV</th>
+            </tr>
+            {% for row in total_volumes %}
+            <tr>
+                <td>{{ row.product }}</td>
+                <td>{{ row.total_volume }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
 
-    <h2>📊 Total MCV by Product</h2>
-    <canvas id="mcvBarChart" width="400" height="200"></canvas>
+    <div class="card">
+        <h2>📊 Total MCV by Product</h2>
+        <div class="chart-container">
+            <canvas id="mcvBarChart" width="600" height="300"></canvas>
+        </div>
+    </div>
 
-    <h2>📈 MCP Over Time</h2>
-    <canvas id="mcpLineChart" width="600" height="200"></canvas>
+    <div class="card">
+        <h2>📊 Recent MCV by Product (Last 7 Days)</h2>
+        <div class="chart-container">
+            <canvas id="recentMcvBarChart" width="600" height="300"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📈 MCP Over Time</h2>
+        <div class="chart-container">
+            <canvas id="mcpLineChart" width="600" height="300"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📊 Blockwise Demand for Date</h2>
+        <div style="margin-bottom: 15px;">
+            <label for="demandDate">Select Date:</label>
+            <input type="date" id="demandDate" name="demandDate">
+            <button id="loadDemandBtn" class="btn btn-primary">Load Demand Data</button>
+        </div>
+        <div id="demandSummary" style="margin-bottom: 10px; font-weight: bold;"></div>
+        <div class="chart-container">
+            <canvas id="blockwiseDemandChart" width="600" height="300"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📊 Blockwise Generation by Generator</h2>
+        <div style="margin-bottom: 15px;">
+            <label for="generationDate">Select Date:</label>
+            <input type="date" id="generationDate" name="generationDate">
+            
+            <label for="generatorSelect" style="margin-left: 15px;">Generator:</label>
+            <select id="generatorSelect">
+                <option value="">All Generators</option>
+                <option value="DAM">DAM</option>
+                <option value="RTM">RTM</option>
+            </select>
+            
+            <button id="loadGenerationBtn" class="btn btn-primary" style="margin-left: 10px;">Load Generation Data</button>
+        </div>
+        <div id="generationSummary" style="margin-bottom: 10px; font-weight: bold;"></div>
+        <div class="chart-container">
+            <canvas id="blockwiseGenerationChart" width="600" height="300"></canvas>
+        </div>
+    </div>
 
     {{ total_volumes|json_script:"totalVolumesData" }}
+    {{ recent_volumes|json_script:"recentVolumesData" }}
     {{ mcp_chart_data|json_script:"mcpChartData" }}
 
     <script>
-    // MCV Bar Chart
-    const totalVolumes = JSON.parse(document.getElementById("totalVolumesData").textContent);
-    if (totalVolumes.length === 0) {
-        console.warn("⚠ No MCV bar chart data available.");
-        document.getElementById("mcvBarChart").outerHTML = "<p style='color:red'>No data available for MCV chart.</p>";
-    } else {
-        const labels = totalVolumes.map(row => row.product);
-        const values = totalVolumes.map(row => row.total_volume);
+        // AI Assistant
+        async function askAI() {
+            const question = document.getElementById("question").value;
+            const responseBox = document.getElementById("responseBox");
+            const responseMessage = document.getElementById("responseMessage");
+            const responseDetails = document.getElementById("responseDetails");
+            const button = document.getElementById("askButton");
 
-        new Chart(document.getElementById("mcvBarChart"), {
-            type: "bar",
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: "Total MCV",
-                    data: values,
-                    backgroundColor: "#4CAF50"
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: "Total MCV by Product"
+            if (!question.trim()) {
+                alert("Please enter a question");
+                return;
+            }
+
+            responseMessage.textContent = "Thinking...";
+            responseDetails.innerHTML = "";
+            responseBox.style.display = "none";
+            button.disabled = true;
+
+            try {
+                const res = await fetch("/ai-assistant/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question })
+                });
+                const data = await res.json();
+                
+                // Display user-friendly message
+                if (data.message) {
+                    responseMessage.textContent = data.message;
+                } else if (data.error) {
+                    responseMessage.textContent = `Error: ${data.error}`;
+                } else {
+                    responseMessage.textContent = "I found some information for you.";
+                }
+                
+                // Display additional details based on query type
+                let detailsHTML = "";
+                
+                const queryType = data.parsed_params?.query_type;
+                
+                if (queryType === 'price' || queryType === 'weighted_avg') {
+                    // Show time period info
+                    if (data.parsed_params.start && data.parsed_params.end) {
+                        detailsHTML += `<p>Time period: ${data.parsed_params.start} to ${data.parsed_params.end}</p>`;
                     }
+                    
+                    // Show price info
+                    if (data.average_mcp) {
+                        detailsHTML += `<p>Average price: ${data.average_mcp.toFixed(2)} Rs/MWh</p>`;
+                    }
+                    
+                    if (data.weighted_average_mcp) {
+                        detailsHTML += `<p>Weighted average price: ${data.weighted_average_mcp.toFixed(2)} Rs/MWh</p>`;
+                    }
+                    
+                    if (data.total_volume) {
+                        detailsHTML += `<p>Total volume: ${data.total_volume.toFixed(2)} MW</p>`;
+                    }
+                }
+                
+                else if (queryType === 'demand' || queryType === 'generation') {
+                    // Show date info
+                    if (data.date) {
+                        detailsHTML += `<p>Date: ${data.date}</p>`;
+                    }
+                    
+                    // Show demand/generation info
+                    if (data.total_demand) {
+                        detailsHTML += `<p>Total demand: ${data.total_demand.toFixed(2)} MW</p>`;
+                    }
+                    
+                    if (data.total_generation) {
+                        detailsHTML += `<p>Total generation: ${data.total_generation.toFixed(2)} MW</p>`;
+                    }
+                    
+                    // Show generators if available
+                    if (data.generators && data.generators.length > 0) {
+                        detailsHTML += `<p>Generators: ${data.generators.join(', ')}</p>`;
+                    }
+                }
+                
+                else if (queryType === 'trend') {
+                    // Show trend indicators
+                    if (data.price_change_pct !== undefined) {
+                        const priceDirection = data.price_change_pct > 0 ? "increased" : "decreased";
+                        detailsHTML += `<p>Price ${priceDirection} by ${Math.abs(data.price_change_pct).toFixed(2)}%</p>`;
+                    }
+                    
+                    if (data.volume_change_pct !== undefined) {
+                        const volumeDirection = data.volume_change_pct > 0 ? "increased" : "decreased";
+                        detailsHTML += `<p>Volume ${volumeDirection} by ${Math.abs(data.volume_change_pct).toFixed(2)}%</p>`;
+                    }
+                }
+                
+                // Update details section
+                responseDetails.innerHTML = detailsHTML;
+                
+                // Store the full response for debugging
+                responseBox.textContent = JSON.stringify(data, null, 2);
+                
+                // Add a "Show Details" link
+                const showDetailsLink = document.createElement('a');
+                showDetailsLink.href = '#';
+                showDetailsLink.textContent = 'Show raw response';
+                showDetailsLink.onclick = function(e) {
+                    e.preventDefault();
+                    responseBox.style.display = responseBox.style.display === 'none' ? 'block' : 'none';
+                    this.textContent = responseBox.style.display === 'none' ? 'Show raw response' : 'Hide raw response';
+                };
+                responseDetails.appendChild(document.createElement('p')).appendChild(showDetailsLink);
+                
+            } catch (error) {
+                responseMessage.textContent = "Error: " + error.message;
+                responseDetails.innerHTML = "";
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        document.getElementById("askButton").addEventListener("click", askAI);
+        
+        // Also handle Enter key in the question input
+        document.getElementById("question").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                askAI();
+            }
+        });
+
+        // MCV Chart
+        const totalVolumes = JSON.parse(document.getElementById("totalVolumesData").textContent);
+        if (totalVolumes.length > 0) {
+            const labels = totalVolumes.map(row => row.product);
+            const values = totalVolumes.map(row => row.total_volume);
+
+            new Chart(document.getElementById("mcvBarChart"), {
+                type: "bar",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Total MCV",
+                        data: values,
+                        backgroundColor: "#28a745",
+                        borderColor: "#1e7e34",
+                        borderWidth: 1
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
+                options: {
+                    responsive: true,
+                    plugins: {
                         title: {
                             display: true,
-                            text: "MCV"
+                            text: "Total MCV by Product",
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: "MCV" },
+                            grid: {
+                                display: true,
+                                color: "rgba(0,0,0,0.05)"
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
                         }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
 
-    // MCP Line Chart
-    const mcpData = JSON.parse(document.getElementById("mcpChartData").textContent);
-    if (!mcpData || mcpData.length === 0) {
-        console.warn("⚠ No MCP chart data available.");
-        document.getElementById("mcpLineChart").outerHTML = "<p style='color:red'>No data available for MCP Over Time chart.</p>";
-    } else {
-        const productMap = {};
-        mcpData.forEach(row => {
-            const time = new Date(row.timestamp).toLocaleString();
-            if (!productMap[row.product]) {
-                productMap[row.product] = { labels: [], data: [] };
-            }
-            productMap[row.product].labels.push(time);
-            productMap[row.product].data.push(row.mcp);
-        });
+        // Recent MCV Chart
+        const recentVolumes = JSON.parse(document.getElementById("recentVolumesData").textContent);
+        if (recentVolumes.length > 0) {
+            const recentLabels = recentVolumes.map(row => row.product);
+            const recentValues = recentVolumes.map(row => row.total_volume);
 
-        const colors = ["blue", "green", "red", "orange", "purple", "brown", "gray"];
-        let colorIndex = 0;
-
-        const datasets = Object.entries(productMap).map(([product, series]) => {
-            const color = colors[colorIndex++ % colors.length];
-            return {
-                label: product,
-                data: series.data,
-                borderColor: color,
-                backgroundColor: color + "33",
-                tension: 0.3,
-                fill: true
-            };
-        });
-
-        const allLabels = Object.values(productMap)[0]?.labels || [];
-
-        new Chart(document.getElementById("mcpLineChart"), {
-            type: "line",
-            data: {
-                labels: allLabels,
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: "top" },
-                    title: {
-                        display: true,
-                        text: "MCP Over Time by Product"
-                    }
+            new Chart(document.getElementById("recentMcvBarChart"), {
+                type: "bar",
+                data: {
+                    labels: recentLabels,
+                    datasets: [{
+                        label: "Recent MCV",
+                        data: recentValues,
+                        backgroundColor: "#007bff",
+                        borderColor: "#0056b3",
+                        borderWidth: 1
+                    }]
                 },
-                scales: {
-                    x: {
-                        title: { display: true, text: "Timestamp" },
-                        ticks: { autoSkip: true, maxTicksLimit: 20 }
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Recent MCV by Product (Last 7 Days)",
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15
+                            }
+                        }
                     },
-                    y: {
-                        title: { display: true, text: "MCP" }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: "MCV" },
+                            grid: {
+                                display: true,
+                                color: "rgba(0,0,0,0.05)"
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
 
-    // 🧠 AI Assistant Function
-    async function askAI() {
-        const question = document.getElementById("question").value;
-        const responseBox = document.getElementById("responseBox");
-        responseBox.innerText = "🤖 Thinking...";
-
-        try {
-            const res = await fetch("/ai-assistant/", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question: question })
+        // MCP Line Chart
+        const mcpData = JSON.parse(document.getElementById("mcpChartData").textContent);
+        if (mcpData.length > 0) {
+            const productMap = {};
+            mcpData.forEach(row => {
+                const time = new Date(row.timestamp).toLocaleString();
+                if (!productMap[row.product]) {
+                    productMap[row.product] = { labels: [], data: [] };
+                }
+                productMap[row.product].labels.push(time);
+                productMap[row.product].data.push(row.mcp);
             });
 
-            const result = await res.json();
+            const colors = ["#1e88e5", "#43a047", "#e53935", "#f9a825", "#5e35b1"];
+            let colorIndex = 0;
 
-            if (res.ok) {
-                responseBox.innerText = `🧠 AI Response:\n\nQuestion: ${result.question}\n\nParsed:\n${JSON.stringify(result.parsed_params, null, 2)}\n\nAverage MCP: ${result.average_mcp}`;
-            } else {
-                responseBox.innerText = `❌ Error:\n${JSON.stringify(result, null, 2)}`;
-            }
-        } catch (err) {
-            responseBox.innerText = `❌ Exception:\n${err}`;
+            const datasets = Object.entries(productMap).map(([product, series]) => {
+                const color = colors[colorIndex % colors.length];
+                colorIndex++;
+                return {
+                    label: product,
+                    data: series.data,
+                    borderColor: color,
+                    backgroundColor: "rgba(255,255,255,0.8)",
+                    fill: false,
+                    tension: 0.2,
+                    borderWidth: 3,
+                    pointRadius: 3,
+                    pointBackgroundColor: color
+                };
+            });
+
+            const allLabels = Object.values(productMap)[0].labels;
+
+            new Chart(document.getElementById("mcpLineChart"), {
+                type: "line",
+                data: {
+                    labels: allLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "MCP Over Time by Product"
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: "Timestamp" },
+                            ticks: { maxTicksLimit: 10, maxRotation: 45, minRotation: 45 },
+                            grid: {
+                                display: true,
+                                color: "rgba(0,0,0,0.05)"
+                            }
+                        },
+                        y: {
+                            title: { display: true, text: "MCP" },
+                            beginAtZero: false,
+                            suggestedMin: function() {
+                                const values = datasets.flatMap(d => d.data);
+                                const min = Math.min(...values);
+                                return min * 0.9;
+                            }(),
+                            suggestedMax: function() {
+                                const values = datasets.flatMap(d => d.data);
+                                const max = Math.max(...values);
+                                return max * 1.1;
+                            }(),
+                            grid: {
+                                display: true,
+                                color: "rgba(0,0,0,0.05)"
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById("mcpLineChart").outerHTML = "<p class='no-data'>No data available for MCP Over Time chart.</p>";
         }
-    }
+
+        // Blockwise Demand Chart
+        let demandChart = null;
+        
+        async function loadDemandData() {
+            const date = document.getElementById('demandDate').value;
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/total-demand/?date=${date}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('demandSummary').textContent = `Error: ${data.error}`;
+                    if (demandChart) {
+                        demandChart.destroy();
+                        demandChart = null;
+                    }
+                    document.getElementById('blockwiseDemandChart').outerHTML = 
+                        `<div id="blockwiseDemandChart" style="text-align:center; padding:20px;">
+                            <p>No data available for ${date}.</p>
+                            <p>Try uploading data for this date or try another date like 2024-05-29.</p>
+                        </div>`;
+                    return;
+                }
+                
+                document.getElementById('demandSummary').textContent = 
+                    `Total Demand for ${date}: ${data.total_demand.toFixed(2)} MW`;
+                
+                // If there's existing chart, destroy it
+                if (demandChart) {
+                    demandChart.destroy();
+                }
+                
+                const canvasEl = document.getElementById('blockwiseDemandChart');
+                // Recreate canvas if it was replaced with a message
+                if (canvasEl.tagName !== 'CANVAS') {
+                    const parent = canvasEl.parentNode;
+                    parent.removeChild(canvasEl);
+                    const newCanvas = document.createElement('canvas');
+                    newCanvas.id = 'blockwiseDemandChart';
+                    newCanvas.width = 600;
+                    newCanvas.height = 300;
+                    parent.appendChild(newCanvas);
+                }
+                
+                const ctx = document.getElementById('blockwiseDemandChart').getContext('2d');
+                demandChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.hourly_demand.map(d => `Hour ${d.hour}`),
+                        datasets: [{
+                            label: 'Hourly Demand (MW)',
+                            data: data.hourly_demand.map(d => d.demand),
+                            backgroundColor: '#17a2b8',
+                            borderColor: '#138496',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Demand for ${date}`,
+                                font: {
+                                    size: 16
+                                }
+                            },
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 15
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'MW'
+                                },
+                                grid: {
+                                    display: true,
+                                    color: "rgba(0,0,0,0.05)"
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Hour of Day'
+                                },
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                document.getElementById('demandSummary').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        document.getElementById('loadDemandBtn').addEventListener('click', loadDemandData);
+        
+        // Set default date to a date we know we have data for
+        document.getElementById('demandDate').value = '2024-05-29';
+
+        // Blockwise Generation Chart
+        let generationChart = null;
+        
+        async function loadGenerationData() {
+            const date = document.getElementById('generationDate').value;
+            const generator = document.getElementById('generatorSelect').value;
+            
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+            
+            try {
+                const url = `/api/generator-data/?date=${date}${generator ? '&generator=' + generator : ''}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('generationSummary').textContent = `Error: ${data.error}`;
+                    if (generationChart) {
+                        generationChart.destroy();
+                        generationChart = null;
+                    }
+                    document.getElementById('blockwiseGenerationChart').outerHTML = 
+                        `<div id="blockwiseGenerationChart" style="text-align:center; padding:20px;">
+                            <p>No generation data available for ${date} ${generator ? 'and ' + generator : ''}.</p>
+                            <p>Try uploading data for this date or try another date like 2024-05-29.</p>
+                        </div>`;
+                    return;
+                }
+                
+                // Update generator dropdown with available generators
+                if (data.generators && data.generators.length > 0) {
+                    const select = document.getElementById('generatorSelect');
+                    // Save current selection
+                    const currentValue = select.value;
+                    
+                    // Clear existing options except the first one (All Generators)
+                    while (select.options.length > 1) {
+                        select.remove(1);
+                    }
+                    
+                    // Add options for available generators
+                    data.generators.forEach(gen => {
+                        const option = document.createElement('option');
+                        option.value = gen;
+                        option.textContent = gen;
+                        select.appendChild(option);
+                    });
+                    
+                    // Restore selection if possible
+                    if (currentValue && data.generators.includes(currentValue)) {
+                        select.value = currentValue;
+                    }
+                }
+                
+                document.getElementById('generationSummary').textContent = 
+                    `Total Generation for ${date}${generator ? ' (' + generator + ')' : ''}: ${data.total_generation.toFixed(2)} MW`;
+                
+                // If there's existing chart, destroy it
+                if (generationChart) {
+                    generationChart.destroy();
+                }
+                
+                const canvasEl = document.getElementById('blockwiseGenerationChart');
+                // Recreate canvas if it was replaced with a message
+                if (canvasEl.tagName !== 'CANVAS') {
+                    const parent = canvasEl.parentNode;
+                    parent.removeChild(canvasEl);
+                    const newCanvas = document.createElement('canvas');
+                    newCanvas.id = 'blockwiseGenerationChart';
+                    newCanvas.width = 600;
+                    newCanvas.height = 300;
+                    parent.appendChild(newCanvas);
+                }
+                
+                // Group data by hour and generator
+                const hourlyData = {};
+                data.hourly_generation.forEach(item => {
+                    const hour = item.hour;
+                    const gen = item.product;
+                    
+                    if (!hourlyData[hour]) {
+                        hourlyData[hour] = {};
+                    }
+                    hourlyData[hour][gen] = item.generation;
+                });
+                
+                // Prepare data for chart
+                const hours = Object.keys(hourlyData).sort();
+                const generators = data.generators;
+                const datasets = [];
+                
+                // Create dataset for each generator
+                generators.forEach((gen, index) => {
+                    const colors = ['#28a745', '#007bff', '#dc3545', '#ffc107', '#17a2b8'];
+                    datasets.push({
+                        label: gen,
+                        data: hours.map(hour => hourlyData[hour][gen] || 0),
+                        backgroundColor: colors[index % colors.length]
+                    });
+                });
+                
+                // Create chart
+                const ctx = document.getElementById('blockwiseGenerationChart').getContext('2d');
+                generationChart = new Chart(ctx, {
+                    type: generator ? 'bar' : 'bar',  // Use bar chart for single generator, stacked for all
+                    data: {
+                        labels: hours.map(h => `Hour ${h}`),
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Generation for ${date}${generator ? ' - ' + generator : ''}`,
+                                font: {
+                                    size: 16
+                                }
+                            },
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 15
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                stacked: !generator,  // Stack when showing all generators
+                                title: {
+                                    display: true,
+                                    text: 'Hour of Day'
+                                },
+                                grid: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                stacked: !generator,  // Stack when showing all generators
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Generation (MW)'
+                                },
+                                grid: {
+                                    display: true,
+                                    color: "rgba(0,0,0,0.05)"
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                document.getElementById('generationSummary').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        document.getElementById('loadGenerationBtn').addEventListener('click', loadGenerationData);
+        
+        // Set default date for generation chart
+        document.getElementById('generationDate').value = '2024-05-29';
     </script>
+</div>
 </body>
 </html>
