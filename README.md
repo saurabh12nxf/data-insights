@@ -1,4 +1,6 @@
 # Electricity Data Insights Platform
+#Demo Video
+https://drive.google.com/file/d/1xoi3ysLzb9qt7Uu4hkJdSlUQ943Jjyun/view?usp=sharing
 
 A comprehensive platform for storing, querying, and visualizing electricity market and operational data.
 
